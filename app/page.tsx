@@ -14,7 +14,8 @@ import {
   X,
   Smartphone,
   Banknote,
-  WifiOff
+  WifiOff,
+  Download
 } from 'lucide-react';
 
 const formatMWK = (amount: number) => {
@@ -51,10 +52,12 @@ export default function Home() {
   const [loadingTaskId, setLoadingTaskId] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
 
   const categories = ['All', 'Video Ads', 'Surveys', 'Daily Tasks'];
 
-  // Network status listener
+  // Network status and PWA listener
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
@@ -63,12 +66,46 @@ export default function Home() {
     window.addEventListener('offline', handleOffline);
     
     setIsOffline(!navigator.onLine);
+
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(console.error);
+    }
+
+    // PWA Install Prompt
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      if (!localStorage.getItem('hasSeenInstallPrompt')) {
+        setShowInstallPrompt(true);
+      }
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
   }, []);
+
+  const handleInstall = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        console.log('User accepted the install prompt');
+      }
+      setDeferredPrompt(null);
+      setShowInstallPrompt(false);
+      localStorage.setItem('hasSeenInstallPrompt', 'true');
+    }
+  };
+
+  const dismissInstall = () => {
+    setShowInstallPrompt(false);
+    localStorage.setItem('hasSeenInstallPrompt', 'true');
+  };
 
   const handleTaskClick = async (task: Task) => {
     if (task.completed || loadingTaskId || isOffline) return;
@@ -209,6 +246,39 @@ export default function Home() {
           ))}
         </div>
       </main>
+
+      {/* Install PWA Prompt */}
+      <AnimatePresence>
+        {showInstallPrompt && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-20 left-4 right-4 md:left-auto md:right-auto md:w-[400px] bg-indigo-600 text-white p-4 rounded-2xl shadow-2xl z-50 flex flex-col gap-3"
+          >
+            <div className="flex justify-between items-start">
+              <div className="flex items-center gap-3">
+                <div className="bg-white/20 p-2 rounded-xl">
+                  <Download size={24} />
+                </div>
+                <div>
+                  <h4 className="font-bold text-lg">Install TaskxEarn MW</h4>
+                  <p className="text-indigo-100 text-sm">Fast, offline access. It&apos;s only 500Kb!</p>
+                </div>
+              </div>
+              <button onClick={dismissInstall} className="text-indigo-200 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <button 
+              onClick={handleInstall}
+              className="w-full bg-white text-indigo-600 font-bold py-3 rounded-xl shadow-sm hover:bg-indigo-50 transition-colors"
+            >
+              Install App Now
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Adsterra Banner Placeholder */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-2 z-10">

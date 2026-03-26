@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5" />
+      <stop offset="100%" stop-color="#312e81" />
+    </linearGradient>
+    <linearGradient id="coin" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fcd34d" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-opacity="0.25" />
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)" />
+  
+  <!-- Wallet Body -->
+  <rect x="116" y="166" width="280" height="180" rx="32" fill="#ffffff" filter="url(#shadow)" />
+  
+  <!-- Wallet Flap -->
+  <path d="M116 220 Q 256 280 396 220 L 396 198 Q 256 258 116 198 Z" fill="#e2e8f0" />
+  
+  <!-- Coin -->
+  <circle cx="256" cy="256" r="48" fill="url(#coin)" filter="url(#shadow)" />
+  
+  <!-- Checkmark -->
+  <path d="M236 256 l 12 12 l 28 -28" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+</svg>
