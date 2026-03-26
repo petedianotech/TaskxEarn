@@ -1,6 +1,7 @@
 import type {Metadata, Viewport} from 'next';
 import './globals.css'; // Global styles
 import { ThemeProvider } from '../components/theme-provider';
+import { AuthProvider } from '../components/auth-provider';
 
 export const viewport: Viewport = {
   themeColor: '#4f46e5',
@@ -32,7 +33,9 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <AuthProvider>
+            {children}
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

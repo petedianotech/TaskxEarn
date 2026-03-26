@@ -1,0 +1,10 @@
+{
+  "projectId": "omnitool-webapp",
+  "appId": "1:96123643278:web:4c3769071e9dbca823b0df",
+  "apiKey": "AIzaSyBts9SRSCZBdqX4WYIjl1BGc84_mQO7bLs",
+  "authDomain": "omnitool-webapp.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-9eceea6d-a24b-4aec-a301-e1280a2216f1",
+  "storageBucket": "omnitool-webapp.firebasestorage.app",
+  "messagingSenderId": "96123643278",
+  "measurementId": ""
+}

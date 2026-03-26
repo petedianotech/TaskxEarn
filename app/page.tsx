@@ -8,6 +8,9 @@ import {
   Loader2, CheckCircle2, AlertCircle, X, Smartphone, Banknote, 
   WifiOff, Download, User as UserIcon, LogOut, Gift, Share2
 } from 'lucide-react';
+import { useAuth } from "@/components/auth-provider";
+import { db } from "@/firebase";
+import { doc, updateDoc } from "firebase/firestore";
 
 const formatMWK = (amount: number) => {
   return `MK ${new Intl.NumberFormat('en-US', {
@@ -36,8 +39,7 @@ const INITIAL_TASKS: Task[] = [
 
 export default function Home() {
   const router = useRouter();
-  const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, profile, loading, signInWithGoogle, logOut } = useAuth();
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [loadingTaskId, setLoadingTaskId] = useState<string | null>(null);
@@ -48,23 +50,11 @@ export default function Home() {
 
   const categories = ['All', 'Video Ads', 'Surveys', 'Daily Tasks'];
 
-  const signInWithGoogle = () => {
+  const handleSignIn = () => {
     router.push('/signup');
   };
 
-  const logOut = () => {
-    localStorage.removeItem('taskxearn_profile');
-    setProfile(null);
-  };
-
   useEffect(() => {
-    // Load profile from localStorage
-    const savedProfile = localStorage.getItem('taskxearn_profile');
-    if (savedProfile) {
-      setProfile(JSON.parse(savedProfile));
-    }
-    setLoading(false);
-
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
     
@@ -112,7 +102,7 @@ export default function Home() {
   };
 
   const handleTaskClick = async (task: Task) => {
-    if (task.completed || loadingTaskId || isOffline || !profile) return;
+    if (task.completed || loadingTaskId || isOffline || !profile || !user) return;
 
     setLoadingTaskId(task.id);
 
@@ -128,11 +118,10 @@ export default function Home() {
         }, delay);
       });
 
-      // Update balance locally and in localStorage
-      setProfile((prev: any) => {
-        const newProfile = { ...prev, balance: prev.balance + task.reward };
-        localStorage.setItem('taskxearn_profile', JSON.stringify(newProfile));
-        return newProfile;
+      // Update balance in Firestore
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        balance: profile.balance + task.reward
       });
 
       setTasks((prev) =>
@@ -197,11 +186,11 @@ export default function Home() {
               <h2 className="text-xl font-bold mb-2">Welcome to TaskxEarn</h2>
               <p className="text-indigo-100 mb-6 text-sm">Sign in to start earning money by completing simple daily tasks.</p>
               <button 
-                onClick={signInWithGoogle}
+                onClick={handleSignIn}
                 className="w-full bg-white text-indigo-600 font-semibold py-3 px-4 rounded-xl hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2"
               >
                 <UserIcon size={20} />
-                Continue with Google
+                Sign In / Sign Up
               </button>
             </div>
           )}
@@ -350,12 +339,11 @@ export default function Home() {
             balance={profile.balance} 
             phoneNumber={profile.phoneNumber}
             onClose={() => setIsWithdrawing(false)} 
-            onSuccess={() => {
-              setProfile((prev: any) => {
-                const newProfile = { ...prev, balance: 0 };
-                localStorage.setItem('taskxearn_profile', JSON.stringify(newProfile));
-                return newProfile;
-              });
+            onSuccess={async () => {
+              if (user) {
+                const userRef = doc(db, "users", user.uid);
+                await updateDoc(userRef, { balance: 0 });
+              }
               setIsWithdrawing(false);
             }}
           />
