@@ -319,7 +319,7 @@ export default function SignupPage() {
               {inviterName && (
                 <div className="p-3 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-medium border border-emerald-100 flex items-center justify-center gap-2">
                   <Gift className="w-5 h-5" />
-                  You were invited by {inviterName}! You'll get 4 points.
+                  You were invited by {inviterName}! You&apos;ll get 4 points.
                 </div>
               )}
               <div>
