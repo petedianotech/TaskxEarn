@@ -23,25 +23,47 @@ service cloud.firestore {
       return request.resource.data.keys().hasOnly(fields);
     }
     function isValidUrl(url) {
-      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*") || url.matches("^data:image/.*"));
     }
     
     // Domain Validators
     function isValidUser(data) {
-      return hasOnlyAllowedFields(['uid', 'name', 'username', 'phoneNumber', 'photoURL', 'balance', 'createdAt']) &&
+      return hasOnlyAllowedFields(['uid', 'name', 'username', 'phoneNumber', 'photoURL', 'balance', 'createdAt', 'referredBy']) &&
              data.uid is string && data.uid.size() > 0 && data.uid.size() < 100 &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              data.username is string && data.username.size() > 0 && data.username.size() < 50 &&
              data.phoneNumber is string && data.phoneNumber.size() > 0 && data.phoneNumber.size() < 20 &&
-             data.photoURL is string && isValidUrl(data.photoURL) && data.photoURL.size() < 500 &&
+             data.photoURL is string && isValidUrl(data.photoURL) && data.photoURL.size() < 2000 &&
              data.balance is number && data.balance >= 0 &&
-             data.createdAt is string;
+             data.createdAt is string &&
+             (!('referredBy' in data) || (data.referredBy is string && data.referredBy.size() > 0 && data.referredBy.size() < 100));
+    }
+
+    function referredByUnchanged() {
+      return (!('referredBy' in resource.data) && !('referredBy' in request.resource.data)) ||
+             ('referredBy' in resource.data && 'referredBy' in request.resource.data && request.resource.data.referredBy == resource.data.referredBy);
     }
 
     match /users/{userId} {
-      allow read: if isOwner(userId);
-      allow create: if isOwner(userId) && isValidUser(request.resource.data) && uidUnchanged() && request.resource.data.balance == 0;
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && uidNotModified() && request.resource.data.createdAt == resource.data.createdAt;
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && uidUnchanged() && 
+                    (
+                      (!('referredBy' in request.resource.data) && request.resource.data.balance == 0) ||
+                      ('referredBy' in request.resource.data && request.resource.data.balance == 4)
+                    );
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) && uidNotModified() && request.resource.data.createdAt == resource.data.createdAt && referredByUnchanged())
+                    ||
+                    (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['balance']) && request.resource.data.balance == resource.data.balance + 5 && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.referredBy == userId);
+      
+      match /history/{historyId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && 
+                      hasOnlyAllowedFields(['taskId', 'title', 'reward', 'completedAt']) &&
+                      request.resource.data.taskId is string &&
+                      request.resource.data.title is string &&
+                      request.resource.data.reward is number &&
+                      request.resource.data.completedAt is string;
+      }
     }
   }
 }

@@ -3,17 +3,16 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
-import { User, Phone, AtSign, CheckCircle2, ArrowRight, Mail, KeyRound, Loader2 } from 'lucide-react';
+import { User, Phone, AtSign, CheckCircle2, ArrowRight, Mail, KeyRound, Loader2, Gift } from 'lucide-react';
 import { useAuth } from "@/components/auth-provider";
 import { db } from "@/firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, writeBatch, increment } from "firebase/firestore";
 
 const AVATARS = [
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Mimi',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Jack',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Oliver',
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23FFEDD5"/><path d="M20 100 Q50 60 80 100" fill="%233B82F6"/><circle cx="50" cy="45" r="22" fill="%23FDBA74"/><path d="M28 35 Q50 15 72 35 L70 45 Q50 30 30 45 Z" fill="%231E293B"/><circle cx="42" cy="42" r="2.5" fill="%231E293B"/><circle cx="58" cy="42" r="2.5" fill="%231E293B"/><path d="M45 52 Q50 58 55 52" stroke="%231E293B" stroke-width="2.5" stroke-linecap="round" fill="none"/></svg>',
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23E0E7FF"/><path d="M20 100 Q50 60 80 100" fill="%2310B981"/><circle cx="50" cy="45" r="22" fill="%23FCD34D"/><path d="M25 40 Q50 10 75 40 Q60 25 50 25 Q40 25 25 40 Z" fill="%2378350F"/><circle cx="30" cy="35" r="8" fill="%2378350F"/><circle cx="45" cy="25" r="10" fill="%2378350F"/><circle cx="60" cy="28" r="9" fill="%2378350F"/><circle cx="70" cy="38" r="7" fill="%2378350F"/><rect x="34" y="38" width="14" height="10" rx="3" stroke="%231E293B" stroke-width="2" fill="none"/><rect x="52" y="38" width="14" height="10" rx="3" stroke="%231E293B" stroke-width="2" fill="none"/><line x1="48" y1="43" x2="52" y2="43" stroke="%231E293B" stroke-width="2"/><path d="M46 54 Q50 57 54 54" stroke="%231E293B" stroke-width="2.5" stroke-linecap="round" fill="none"/></svg>',
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23FCE7F3"/><path d="M25 45 Q50 10 75 45 L80 80 Q50 90 20 80 Z" fill="%23451A03"/><path d="M20 100 Q50 60 80 100" fill="%23EC4899"/><circle cx="50" cy="45" r="20" fill="%23FDBA74"/><path d="M30 40 Q50 25 70 40" fill="%23451A03"/><circle cx="42" cy="42" r="2.5" fill="%231E293B"/><circle cx="58" cy="42" r="2.5" fill="%231E293B"/><path d="M45 52 Q50 58 55 52" stroke="%231E293B" stroke-width="2.5" stroke-linecap="round" fill="none"/><circle cx="38" cy="48" r="4" fill="%23FCA5A5" opacity="0.6"/><circle cx="62" cy="48" r="4" fill="%23FCA5A5" opacity="0.6"/></svg>',
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23FEF3C7"/><path d="M20 100 Q50 60 80 100" fill="%238B5CF6"/><path d="M25 50 Q50 15 75 50 L75 65 Q50 75 25 65 Z" fill="%231E293B"/><circle cx="50" cy="45" r="20" fill="%23FCD34D"/><path d="M30 45 Q50 30 70 45" fill="%231E293B"/><circle cx="42" cy="42" r="2.5" fill="%231E293B"/><circle cx="58" cy="42" r="2.5" fill="%231E293B"/><path d="M46 53 Q50 56 54 53" stroke="%231E293B" stroke-width="2.5" stroke-linecap="round" fill="none"/><circle cx="38" cy="48" r="4" fill="%23FCA5A5" opacity="0.6"/><circle cx="62" cy="48" r="4" fill="%23FCA5A5" opacity="0.6"/></svg>',
 ];
 
 export default function SignupPage() {
@@ -34,6 +33,29 @@ export default function SignupPage() {
   const [profilePhone, setProfilePhone] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [refUid, setRefUid] = useState<string | null>(null);
+  const [inviterName, setInviterName] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setRefUid(params.get('ref'));
+  }, []);
+
+  useEffect(() => {
+    const fetchInviter = async () => {
+      if (user && refUid) {
+        try {
+          const inviterDoc = await getDoc(doc(db, 'users', refUid));
+          if (inviterDoc.exists()) {
+            setInviterName(inviterDoc.data().name);
+          }
+        } catch (err) {
+          console.error("Failed to fetch inviter", err);
+        }
+      }
+    };
+    fetchInviter();
+  }, [user, refUid]);
 
   useEffect(() => {
     if (!loading && user && profile) {
@@ -99,8 +121,10 @@ export default function SignupPage() {
     setAuthError('');
     
     try {
+      const batch = writeBatch(db);
       const userRef = doc(db, "users", user.uid);
-      await setDoc(userRef, {
+      
+      const profileData: any = {
         uid: user.uid,
         name,
         username,
@@ -108,9 +132,20 @@ export default function SignupPage() {
         photoURL: selectedAvatar,
         balance: 0,
         createdAt: new Date().toISOString()
-      });
+      };
+
+      if (refUid && inviterName) {
+        profileData.balance = 4;
+        profileData.referredBy = refUid;
+        const inviterRef = doc(db, "users", refUid);
+        batch.update(inviterRef, { balance: increment(5) });
+      }
+
+      batch.set(userRef, profileData);
+      await batch.commit();
       // The onSnapshot listener in AuthProvider will pick this up and redirect
     } catch (error: any) {
+      console.error(error);
       setAuthError(error.message || 'Failed to create profile');
       setIsSubmitting(false);
     }
@@ -202,7 +237,7 @@ export default function SignupPage() {
                         required
                         value={phoneNumber}
                         onChange={(e) => setPhoneNumber(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all"
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all text-slate-900"
                         placeholder="+265 999 999 999"
                       />
                     </div>
@@ -248,7 +283,7 @@ export default function SignupPage() {
                         required
                         value={verificationCode}
                         onChange={(e) => setVerificationCode(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all tracking-widest text-center font-mono text-lg"
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all tracking-widest text-center font-mono text-lg text-slate-900"
                         placeholder="123456"
                       />
                     </div>
@@ -281,6 +316,12 @@ export default function SignupPage() {
               className="space-y-6"
             >
               {/* Profile Picture Selection */}
+              {inviterName && (
+                <div className="p-3 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-medium border border-emerald-100 flex items-center justify-center gap-2">
+                  <Gift className="w-5 h-5" />
+                  You were invited by {inviterName}! You'll get 4 points.
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-3">Choose an Avatar</label>
                 <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
@@ -317,7 +358,7 @@ export default function SignupPage() {
                       required
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all"
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all text-slate-900"
                       placeholder="John Doe"
                     />
                   </div>
@@ -334,7 +375,7 @@ export default function SignupPage() {
                       required
                       value={username}
                       onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s/g, ''))}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all"
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all text-slate-900"
                       placeholder="johndoe"
                     />
                   </div>
@@ -351,7 +392,7 @@ export default function SignupPage() {
                       required
                       value={profilePhone}
                       onChange={(e) => setProfilePhone(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all"
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all text-slate-900"
                       placeholder="+265 999 999 999"
                     />
                   </div>

@@ -6,11 +6,11 @@ import { useRouter } from 'next/navigation';
 import { 
   Wallet, PlaySquare, CalendarCheck, FileText, ArrowRight, 
   Loader2, CheckCircle2, AlertCircle, X, Smartphone, Banknote, 
-  WifiOff, Download, User as UserIcon, LogOut, Gift, Share2
+  WifiOff, Download, User as UserIcon, LogOut, Gift, Share2, History
 } from 'lucide-react';
 import { useAuth } from "@/components/auth-provider";
 import { db } from "@/firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, collection, writeBatch } from "firebase/firestore";
 
 const formatMWK = (amount: number) => {
   return `MK ${new Intl.NumberFormat('en-US', {
@@ -118,11 +118,21 @@ export default function Home() {
         }, delay);
       });
 
-      // Update balance in Firestore
+      // Update balance in Firestore and add to history
       const userRef = doc(db, "users", user.uid);
-      await updateDoc(userRef, {
+      const historyRef = doc(collection(db, "users", user.uid, "history"));
+      
+      const batch = writeBatch(db);
+      batch.update(userRef, {
         balance: profile.balance + task.reward
       });
+      batch.set(historyRef, {
+        taskId: task.id,
+        title: task.title,
+        reward: task.reward,
+        completedAt: new Date().toISOString()
+      });
+      await batch.commit();
 
       setTasks((prev) =>
         prev.map((t) => (t.id === task.id ? { ...t, completed: true } : t))
@@ -131,6 +141,24 @@ export default function Home() {
       alert('Connection is slow or failed. Please try again.');
     } finally {
       setLoadingTaskId(null);
+    }
+  };
+
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/signup?ref=${user?.uid}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'TaskxEarn MW',
+          text: 'Join TaskxEarn and earn money by completing simple tasks! Use my link to get 4 points instantly.',
+          url: shareUrl,
+        });
+      } catch (err) {
+        console.error('Error sharing:', err);
+      }
+    } else {
+      navigator.clipboard.writeText(shareUrl);
+      alert('Referral link copied to clipboard!');
     }
   };
 
@@ -150,11 +178,15 @@ export default function Home() {
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold tracking-tight">TaskxEarn MW</h1>
             <div className="flex items-center gap-3">
-              {profile && (
-                <button onClick={logOut} className="bg-indigo-500/50 p-2 rounded-full hover:bg-indigo-500 transition-colors">
-                  <LogOut size={20} />
-                </button>
-              )}
+              <div className="h-10 w-10 flex items-center justify-center">
+                {profile ? (
+                  <button onClick={logOut} className="bg-indigo-500/50 p-2 rounded-full hover:bg-indigo-500 transition-colors">
+                    <LogOut size={20} />
+                  </button>
+                ) : (
+                  <div className="w-10 h-10" />
+                )}
+              </div>
               <div className="bg-indigo-500/50 p-2 rounded-full">
                 <Wallet size={24} />
               </div>
@@ -172,13 +204,34 @@ export default function Home() {
               </div>
               <p className="text-indigo-100 text-sm font-medium mb-1">Total Balance</p>
               <h2 className="text-4xl font-bold mb-4">{formatMWK(profile.balance)}</h2>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setIsWithdrawing(true)}
+                  disabled={profile.balance === 0 || isOffline}
+                  className="flex-1 bg-white text-indigo-600 font-semibold py-3 rounded-xl shadow-sm hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <Banknote size={20} />
+                  Withdraw
+                </button>
+                <button 
+                  onClick={() => router.push('/history')}
+                  className="flex-1 bg-indigo-500/30 text-white font-semibold py-3 rounded-xl shadow-sm hover:bg-indigo-500/50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <History size={20} />
+                  History
+                </button>
+              </div>
+            </div>
+          ) : user ? (
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 text-center">
+              <h2 className="text-xl font-bold mb-2">Complete Your Profile</h2>
+              <p className="text-indigo-100 mb-6 text-sm">You are signed in! Please complete your profile to start earning.</p>
               <button 
-                onClick={() => setIsWithdrawing(true)}
-                disabled={profile.balance === 0 || isOffline}
-                className="w-full bg-white text-indigo-600 font-semibold py-3 rounded-xl shadow-sm hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                onClick={handleSignIn}
+                className="w-full bg-white text-indigo-600 font-semibold py-3 px-4 rounded-xl hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2"
               >
-                <Banknote size={20} />
-                Withdraw Funds
+                <UserIcon size={20} />
+                Complete Profile
               </button>
             </div>
           ) : (
@@ -288,8 +341,8 @@ export default function Home() {
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 mb-1">Invite & Earn More</h3>
-                  <p className="text-sm text-slate-500 mb-3">Get MWK 1,000 for every friend who signs up using your link.</p>
-                  <button className="flex items-center gap-1 text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+                  <p className="text-sm text-slate-500 mb-3">Get 5 points for every friend who signs up using your link. They get 4 points!</p>
+                  <button onClick={handleShare} className="flex items-center gap-1 text-sm font-semibold text-indigo-600 hover:text-indigo-700">
                     Get Referral Link <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
