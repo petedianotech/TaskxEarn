@@ -27,12 +27,24 @@ jobs:
       uses: android-actions/setup-android@v3
 
     - name: Install Dependencies
-      run: npm install
+      run: npm ci
 
     - name: Build Next.js App (Static Export)
       run: npm run build
       env:
         BUILD_APK: 'true'
+        NEXT_TELEMETRY_DISABLED: 1
+
+    - name: Verify Build Output
+      run: |
+        if [ ! -d "out" ]; then
+          echo "Error: 'out' directory not found. Build might have failed or output path is different."
+          exit 1
+        fi
+        ls -la out
+
+    - name: Fix Permissions
+      run: chmod +x android/gradlew
 
     - name: Sync Capacitor
       run: npx cap sync android
